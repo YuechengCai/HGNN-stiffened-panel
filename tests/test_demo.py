@@ -10,6 +10,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from dataset import ROOT, load_dataset
 from demo import evaluate, load_checkpoint, make_model
+from model import FHGT_YC
 
 
 class DemoTests(unittest.TestCase):
@@ -40,18 +41,40 @@ class DemoTests(unittest.TestCase):
             self.assertEqual(graph["plate"].stress.shape, (graph["plate"].num_nodes, 500))
             self.assertEqual(graph["Disp"].x.size(1), 360)
 
-    def test_normalization_uses_training_only(self):
-        model = make_model(self.graphs[0])
-        model.fit_normalization(self.splits["train"], "stress")
-        for nt in self.graphs[0].node_types:
-            training_mean = torch.cat([g[nt].x for g in self.splits["train"]]).mean(0)
-            torch.testing.assert_close(getattr(model, f"input_mean_{nt}"), training_mean)
-        y = torch.cat([g["plate"].stress.flatten() for g in self.splits["train"]])
-        torch.testing.assert_close(model.target_mean, y.mean())
-        torch.testing.assert_close(model.target_scale, y.std(unbiased=False))
+    def test_node_type_running_statistics_remain_separate(self):
+        graph = self.graphs[0]
+        model = FHGT_YC(dict(graph.num_node_features), graph.metadata(),
+                        hidden_channels=8, out_channels=8, num_layers=2, heads=2)
+        noise = torch.linspace(-1, 1, 256).reshape(32, 8)
+        plate, edge = noise + 10, noise - 10
+        model.train()
+        with torch.no_grad():
+            for _ in range(100):
+                model.normalize(0, "plate", plate)
+                model.normalize(0, "edge", edge)
+        model.eval()
+        # Reusing a single running mean would bias both node types at inference.
+        with torch.no_grad():
+            self.assertLess(float(model.normalize(0, "plate", plate).mean(0).abs().max()), 0.01)
+            self.assertLess(float(model.normalize(0, "edge", edge).mean(0).abs().max()), 0.01)
+
+    def test_targets_are_not_inputs(self):
+        model, _ = load_checkpoint(ROOT / "pretrained/case3_stress.pt", self.graphs[0])
+        model.eval()
+        original = self.graphs[0]
+        changed = original.clone()
+        changed["plate"].stress += 10000
+        changed["plate"].Location += 10000
+        with torch.no_grad():
+            a = model(original.x_dict, original.edge_index_dict)["plate"]
+            b = model(changed.x_dict, changed.edge_index_dict)["plate"]
+        torch.testing.assert_close(a, b, rtol=0, atol=0)
 
     def test_pretrained_batching_and_reference_metrics(self):
         model, checkpoint = load_checkpoint(ROOT / "pretrained/case3_stress.pt", self.graphs[0])
+        self.assertEqual(checkpoint["architecture"], "research_hgt")
+        self.assertEqual(sum(p.numel() for p in model.parameters()), 4887056)
+        self.assertEqual(model.num_layers, 10)
         self.assertEqual(checkpoint["training_source_indices"], list(range(4800)))
         self.assertEqual(checkpoint["validation_source_indices"], list(range(5400, 5600)))
         self.assertTrue(set(checkpoint["training_source_indices"]).isdisjoint(g.sample_id for g in self.splits["test"]))

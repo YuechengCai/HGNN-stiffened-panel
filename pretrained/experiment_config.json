@@ -1,5 +1,20 @@
 {
   "case": "Case 3 three unit water",
+  "architecture": "research_hgt",
+  "network": {
+    "hidden_channels": 64,
+    "out_channels": 500,
+    "num_layers": 10,
+    "heads": 4,
+    "seed": 42,
+    "node_type_batch_stats": true
+  },
+  "initialization": "Original 4800-graph research checkpoint (zero-based epoch 480), followed by 3 selected warm-start epochs and training-only per-node-type BN calibration",
+  "source_research_epoch_zero_based": 480,
+  "warm_start_epochs_in_selected_weights": 3,
+  "training_samples": 4800,
+  "validation_samples": 200,
+  "test_samples": 999,
   "train_pool": [
     0,
     4800
@@ -18,22 +33,27 @@
       5999
     ]
   ],
-  "note": "Half-open, zero-based cache index ranges; original Case 3 training/validation ranges preserved.",
-  "feature_dims": {
-    "plate": 3,
-    "force": 10,
-    "Disp": 360,
-    "edge": 10
-  },
-  "network": {
-    "layers": 4,
-    "hidden": 64,
-    "heads": 4
-  },
-  "max_epochs": 200,
-  "batch_size": 64,
-  "learning_rate": 0.001,
+  "microbatch_size": 16,
+  "gradient_accumulation_steps": 4,
+  "effective_batch_size": 64,
+  "initial_learning_rate": 1e-05,
+  "weight_decay": 0.0001,
   "seed": 42,
-  "scheduler": "ReduceLROnPlateau, factor 0.5, patience 8, minimum LR 1e-5",
-  "early_stopping": "30 epochs without validation improvement, minimum 50 epochs"
+  "max_fine_tuning_epochs": 50,
+  "minimum_epochs": 20,
+  "early_stopping_patience": 15,
+  "scheduler": "ReduceLROnPlateau, factor 0.5, patience 8, minimum LR 1e-6",
+  "normalization": "Original shared affine BN parameters; separate running moments per node type; no new trainable parameters",
+  "input_preprocessing": "Original stored research feature scaling; valid relation endpoints; no additional normalization",
+  "restart": {
+    "stage_one_completed_epochs": 19,
+    "stage_one_best_epoch": 17,
+    "stage_one_microbatch_size": 32,
+    "stage_one_gradient_accumulation_steps": 2,
+    "stage_one_initial_learning_rate": 3e-05,
+    "reason": "Large graph batch triggered GPU memory paging; resume saved best weights with smaller microbatches and reset optimizer"
+  },
+  "stop_reason": "Convergence review: best validation RMSE improved by less than 0.01 MPa over the last 8 completed epochs after at least 20 epochs",
+  "completed_fine_tuning_epochs": 25,
+  "stop_was_validation_review": true
 }

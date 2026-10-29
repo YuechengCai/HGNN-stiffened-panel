@@ -13,11 +13,14 @@ import torch
 from torch_geometric.loader import DataLoader
 
 from dataset import ROOT, DEFAULT_ARCHIVE, TARGETS, load_dataset
-from model import FHGT_YC_V2
+from model import FHGT_YC, FHGT_YC_V2
 
 
-def make_model(graph, config=None):
-    return FHGT_YC_V2(in_channels=dict(graph.num_node_features), metadata=graph.metadata(), **(config or {}))
+def make_model(graph, config=None, architecture="research_hgt"):
+    classes = {"research_hgt": FHGT_YC, "residual_hgt": FHGT_YC_V2}
+    if architecture not in classes:
+        raise ValueError(f"Unknown architecture: {architecture}")
+    return classes[architecture](in_channels=dict(graph.num_node_features), metadata=graph.metadata(), **(config or {}))
 
 
 def evaluate(model, graphs, device="cpu", target="stress", batch_size=4):
@@ -46,14 +49,15 @@ def load_checkpoint(path, graph, device="cpu"):
         raise ValueError("Checkpoint and graph feature dimensions differ")
     if checkpoint["metadata"] != graph.metadata():
         raise ValueError("Checkpoint and graph relations/order differ")
-    model = make_model(graph, checkpoint["model_config"])
+    model = make_model(graph, checkpoint["model_config"], checkpoint.get("architecture", "residual_hgt"))
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
     return model.to(device), checkpoint
 
 
 def train(splits, output, device="cpu", target="stress", epochs=3, batch_size=8,
-          hidden_channels=64, num_layers=4, lr=1e-3, seed=42,
-          patience=0, min_epochs=0, scheduler_patience=8, case="demo"):
+          hidden_channels=64, num_layers=10, lr=1e-4, seed=42,
+          patience=0, min_epochs=0, scheduler_patience=15, case="demo",
+          architecture="research_hgt"):
     if epochs < 1 or batch_size < 1 or not splits["train"] or not splits["val"]:
         raise ValueError("Training requires positive epochs/batch size and nonempty train/val splits")
     random.seed(seed)
@@ -62,8 +66,9 @@ def train(splits, output, device="cpu", target="stress", epochs=3, batch_size=8,
     config = dict(hidden_channels=hidden_channels, num_layers=num_layers, heads=4,
                   out_channels=500, seed=seed)
     graph = splits["train"][0]
-    model = make_model(graph, config)
-    model.fit_normalization(splits["train"], target)
+    model = make_model(graph, config, architecture)
+    if architecture == "residual_hgt":
+        model.fit_normalization(splits["train"], target)
     model = model.to(device)
     loader = DataLoader(splits["train"], batch_size=batch_size, shuffle=True,
                         generator=torch.Generator().manual_seed(seed))
@@ -83,12 +88,13 @@ def train(splits, output, device="cpu", target="stress", epochs=3, batch_size=8,
             optimizer.zero_grad(set_to_none=True)
             truth = batch["plate"][target]
             pred = model(batch.x_dict, batch.edge_index_dict)["plate"]
-            loss = torch.nn.functional.mse_loss(pred, truth) / model.target_scale.square()
+            scale = float(model.target_scale.item()) if architecture == "residual_hgt" else 1.0
+            loss = torch.nn.functional.mse_loss(pred, truth) / scale**2
             if not torch.isfinite(loss):
                 raise RuntimeError("Non-finite training loss")
             loss.backward()
             optimizer.step()
-            squared_error += loss.item() * model.target_scale.item() ** 2 * truth.numel()
+            squared_error += loss.item() * scale**2 * truth.numel()
             n_values += truth.numel()
         metrics, _, _ = evaluate(model, splits["val"], device, target, batch_size=max(4, batch_size))
         val_mse = metrics["rmse"] ** 2
@@ -103,7 +109,7 @@ def train(splits, output, device="cpu", target="stress", epochs=3, batch_size=8,
         if patience and epoch >= min_epochs and epoch - best_epoch >= patience:
             print(f"Early stopping after {epoch} epochs; best validation epoch {best_epoch}.", flush=True)
             break
-    torch.save({"model_state_dict": best_state, "model_config": config, "target": target,
+    torch.save({"model_state_dict": best_state, "model_config": config, "architecture": architecture, "target": target,
                 "feature_dims": dict(graph.num_node_features), "metadata": graph.metadata(),
                 "best_epoch": best_epoch, "training_source_indices": [g.sample_id for g in splits["train"]],
                 "validation_source_indices": [g.sample_id for g in splits["val"]],
@@ -168,11 +174,11 @@ def main():
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--hidden", type=int, default=64)
-    parser.add_argument("--layers", type=int, default=4)
-    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--layers", type=int, default=10)
+    parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--patience", type=int, default=0, help="Validation early stopping; 0 disables it")
     parser.add_argument("--min-epochs", type=int, default=0)
-    parser.add_argument("--scheduler-patience", type=int, default=8)
+    parser.add_argument("--scheduler-patience", type=int, default=15)
     parser.add_argument("--split", choices=("train", "val", "test"), default="test")
     parser.add_argument("--plate", type=int, default=0)
     args = parser.parse_args()

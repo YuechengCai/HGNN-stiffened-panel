@@ -53,7 +53,7 @@ CPU inference is supported. CUDA is selected automatically when available; pass 
 python demo.py train --epochs 3 --output outputs/quick_train
 
 # Train longer on the supplied 24 training graphs
-python demo.py train --epochs 200 --batch-size 8 --layers 4 --hidden 64 --lr 0.001 --patience 30 --min-epochs 50 --output outputs/retrain
+python demo.py train --epochs 500 --batch-size 8 --layers 10 --hidden 64 --lr 0.0001 --output outputs/retrain
 
 # Evaluate your saved checkpoint
 python demo.py predict --checkpoint outputs/retrain/best_model.pt --output outputs/retrain_prediction
@@ -62,9 +62,15 @@ python demo.py predict --checkpoint outputs/retrain/best_model.pt --output outpu
 python demo.py train --target U1 --epochs 3 --output outputs/U1_demo
 ```
 
-The demo adapts the residual HGT implementation from the research source code, with four HGT layers, 64 hidden channels, four attention heads, dropout 0.1, and a linear head on plate nodes. Input standardization and target scaling are fitted on the training split only and saved in the checkpoint. Outputs are restored to their stored target units before reporting errors. This compact demo network and its training recipe differ from the full paper experiments.
+The demo uses the **full-size research HGT**: ten HGT layers, 64 hidden channels, four attention heads, and a final HGT layer with 500 output channels. It has **4,887,056 trainable parameters**. Stored research input scaling and physical stress targets are preserved; no additional input standardization or target rescaling is applied.
 
-AdamW uses initial learning rate 0.001 and weight decay 0.0001. A validation-based scheduler halves the learning rate after eight epochs without improvement, down to 0.00001. The checkpoint with the lowest validation MSE is retained. The full local experiment allows up to 200 epochs and stops after 30 epochs without validation improvement, after at least 50 epochs. This compact training recipe differs from the full experiments and hyperparameter searches in the paper.
+The original checkpoint supplies weights from zero-based epoch 480 of the research training run. The released weights are further adapted on the validated Case 3 graph inputs. The saved history describes this additional fine-tuning phase, rather than claiming the original research training was repeated from scratch.
+
+BatchNorm retains the original shared affine parameters, but stores running means and variances separately for `plate`, `force`, `Disp`, and `edge`. Its training forward map is verified to match the research implementation exactly. Type-specific inference moments are fitted on training data only and saved in the checkpoint; this prevents statistics from different node types being mixed at inference.
+
+Additional fine-tuning uses AdamW, weight decay 0.0001, and an effective batch size of 64. It starts at learning rate 0.00003 with two microbatches of 32. Large variable-size graph batches caused GPU memory paging, so training resumes from the saved best checkpoint with four microbatches of 16 and a reset optimizer at learning rate 0.00001. Gradients are weighted by their actual number of field values. The restart and batch sizes are recorded explicitly in the configuration and history.
+
+A validation-based scheduler halves the learning rate after eight epochs without improvement, down to 0.000001. The lowest-validation-MSE checkpoint is retained. This run completed **25 additional epochs** and selected the checkpoint labelled **additional epoch 23**. It was stopped after a convergence review: the best validation RMSE improved by less than 0.01 MPa over the last eight completed epochs. The planned maximum of 50 was not reached. Actual completed epochs, selected checkpoint, phase timings, restart, and initialization are recorded separately from the original research training.
 
 ## Data and pretrained model
 
@@ -73,25 +79,15 @@ AdamW uses initial learning rate 0.001 and weight decay 0.0001. A validation-bas
 - `pretrained/training_history.json`: the training/validation history, including learning rates and elapsed time.
 - `pretrained/metrics.json`: results on the four bundled test examples.
 - `pretrained/full_test_metrics.json`: results on all 999 test graphs, including the median and 90th percentile of per-graph RMSE.
-- `pretrained/data_size_comparison.json`: 400 versus 4,800 training graphs on the same Case 3 validation/test sets.
 - `pretrained/experiment_config.json`: exact experiment settings and split ranges.
 
 The notebook and default CLI evaluate only the four bundled test examples; the full-test report evaluates 999 graphs. These are demo results, not paper benchmark metrics. A three-epoch run checks the workflow and should not be expected to converge. Retraining on the released 24-graph subset produces a different model from the bundled 4,800-graph checkpoint.
 
-The full local recipe uses batch size 64 and seed 42. Training uses original graph indices `[0, 4800)`, validation uses `[5400, 5600)`, and testing uses `[4800, 5400)` plus `[5600, 5999)` (zero-based, half-open ranges). There are 5,999 graphs in the available cache. This preserves the existing Case 3 training/validation ranges and evaluates all remaining graphs. Normalization uses training graphs only; checkpoint selection uses validation graphs only. These are graph-level splits; related panels can originate from the same box-beam geometry. The omitted training samples are required to reproduce the supplied checkpoint from scratch.
+The full local recipe uses effective batch size 64 and seed 42. Training uses original graph indices `[0, 4800)`, validation uses `[5400, 5600)`, and testing uses `[4800, 5400)` plus `[5600, 5999)` (zero-based, half-open ranges). There are 5,999 graphs in the available cache. This preserves the existing Case 3 training/validation ranges and evaluates all remaining graphs. BatchNorm moments use training graphs only; checkpoint selection uses validation graphs only. These are graph-level splits; related panels can originate from the same box-beam geometry. The omitted training samples and original initialization are required to reproduce the supplied checkpoint.
 
-Paper 3 uses 4,800 training panels for its full study. This demo now uses the same training count, with a compact residual HGT and the explicit split above; it is not a reproduction of all paper experiments. The three-epoch notebook training cell uses only the 24 released training graphs and is a separate workflow check. Example selection is evenly spaced within each pool and does not depend on model errors.
+On the full 999-graph test set (9,315,500 field values), the released network has stress **RMSE 2.05 MPa** and **MAE 0.90 MPa**. Median per-graph RMSE is 0.88 MPa. Median panel-peak relative error is 3.07%; its 90th percentile is 17.88%, so local peaks remain less accurate for some panels. The checkpoint is approximately **19.76 MB (18.84 MiB)**, storing weights and inference statistics without optimizer state.
 
-### Effect of training data size on Case 3
-
-The same network, 200 validation graphs, 999 test graphs, optimizer, and stopping rules were used for both runs. More graphs also mean more optimization steps per epoch.
-
-| Training graphs | Test stress RMSE (MPa) | Test stress MAE (MPa) | Median per-graph RMSE (MPa) |
-|---:|---:|---:|---:|
-| 400 | 7.22 | 4.07 | 4.86 |
-| 4,800 | 5.56 | 2.81 | 3.06 |
-
-Using 4,800 training graphs reduces RMSE by approximately 23% in this comparison. The larger run stopped after 75 epochs and retained the checkpoint from epoch 45. Results cover 9,315,500 field values across 18,631 plate nodes; the four distributed test examples are only a visualization subset. These results belong to this demo configuration and do not replace the paper's accuracy results.
+Paper 3 uses 4,800 training panels for its full study. This demo uses that training count and the full research network scale, with the explicit split and inference-statistics correction above. It is not a reproduction of the complete global ESL framework or all paper experiments. The optional three-epoch notebook cell uses only the 24 released training graphs and is disabled by default. Example selection is evenly spaced within each pool and does not depend on model errors.
 
 Stress fields have 500 values per plate, plotted as a 10 × 50 grid using the original MATLAB column-major ordering. Displacement targets retain their original stored scaling; this demo does not claim to convert those values to physical displacement units.
 
@@ -103,7 +99,7 @@ The exporter corrected reversed source/destination rows in the two legacy `Disp 
 |---|---|
 | [demo.ipynb](demo.ipynb) | Main walkthrough with executed example outputs |
 | [dataset.py](dataset.py) | CSV loading and improved heterogeneous graph construction |
-| [model.py](model.py) | Residual HGT and saved normalization statistics |
+| [model.py](model.py) | Full research HGT and saved node-type running statistics |
 | [demo.py](demo.py) | Command-line training, inference, plots, and metrics |
 | [tests/test_demo.py](tests/test_demo.py) | Graph, split, checkpoint, and inference checks |
 | [validation.json](validation.json) | Recorded local environment and verification results |

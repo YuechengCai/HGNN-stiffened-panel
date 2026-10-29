@@ -1,5 +1,5 @@
 {
-  "validated_at_utc": "2026-10-29T08:14:03.302524+00:00",
+  "validated_at_utc": "2026-10-29T09:29:52.751764+00:00",
   "environment": {
     "python": "3.11.13",
     "torch": "2.7.1+cu126",
@@ -30,79 +30,61 @@
     "export_roundtrip": "Exact float32 equality for all 32 corrected source graphs"
   },
   "model": {
-    "class": "FHGT_YC_V2",
-    "parameters": 489732,
-    "best_epoch": 45,
+    "class": "FHGT_YC",
+    "parameters": 4887056,
+    "best_epoch": 23,
     "training_graph_count": 4800,
     "validation_graph_count": 200,
-    "reference_research_backbone_max_abs_difference": 0.0
+    "checkpoint_bytes": 19756087,
+    "source_research_epoch_zero_based": 480,
+    "reference_research_training_forward_max_abs_difference": 0.0
   },
   "checks": {
-    "unit_tests_passed": 4,
-    "notebook_code_cells_executed": 8,
-    "notebook_png_outputs": 4,
-    "notebook_short_training_epochs": 3,
-    "checkpoint_reload_predictions_match": true,
-    "cpu_gpu_max_abs_prediction_difference": 3.0517578125e-05
+    "unit_tests_passed": 5,
+    "notebook_code_cells_executed": 7,
+    "notebook_png_outputs": 3,
+    "optional_training_enabled": false,
+    "strict_checkpoint_loading": true,
+    "cpu_gpu_max_abs_prediction_difference": 0.0002155303955078125
   },
   "cpu_test_metrics": {
-    "rmse": 3.8182828426361084,
-    "mae": 1.9575080871582031,
+    "rmse": 1.163875937461853,
+    "mae": 0.7182548642158508,
     "n_graphs": 4,
     "n_plate_nodes": 96,
     "n_field_values": 48000
   },
   "gpu_test_metrics": {
-    "rmse": 3.81828236579895,
-    "mae": 1.957507610321045,
+    "rmse": 1.16386878490448,
+    "mae": 0.7182537317276001,
     "n_graphs": 4,
     "n_plate_nodes": 96,
     "n_field_values": 48000
   },
   "full_test_metrics": {
-    "rmse": 5.560907363891602,
-    "mae": 2.80908465385437,
+    "rmse": 2.0470757484436035,
+    "mae": 0.8984460234642029,
     "n_graphs": 999,
     "n_plate_nodes": 18631,
     "n_field_values": 9315500,
-    "zero_prediction_rmse": 25.2459716796875,
     "training_samples": 4800,
     "validation_samples": 200,
-    "epochs_run": 75,
-    "graph_rmse_median": 3.0579428672790527,
-    "graph_rmse_p90": 8.025827407836914
+    "epochs_run": 25,
+    "best_fine_tuning_epoch": 23,
+    "source_research_epoch_zero_based": 480,
+    "selected_warm_start_epochs": 3,
+    "graph_rmse_median": 0.883951723575592,
+    "graph_rmse_p90": 2.275933647155762,
+    "training_elapsed_seconds": 1654.2339999999385,
+    "parameter_count": 4887056,
+    "checkpoint_bytes": 19756087,
+    "best_validation_rmse": 1.7179683446884155,
+    "stop_reason": "Convergence review: best validation RMSE improved by less than 0.01 MPa over the last 8 completed epochs after at least 20 epochs",
+    "median_peak_stress_relative_error_percent": 3.065125931265459,
+    "p90_peak_stress_relative_error_percent": 17.880140597264347
   },
-  "data_size_comparison": {
-    "400": {
-      "rmse": 7.221146583557129,
-      "mae": 4.069891452789307,
-      "n_graphs": 999,
-      "n_plate_nodes": 18631,
-      "n_field_values": 9315500,
-      "zero_prediction_rmse": 25.2459716796875,
-      "training_samples": 400,
-      "validation_samples": 200,
-      "epochs_run": 110,
-      "graph_rmse_median": 4.8631911277771,
-      "graph_rmse_p90": 10.884078788757327
-    },
-    "4800": {
-      "rmse": 5.560907363891602,
-      "mae": 2.80908465385437,
-      "n_graphs": 999,
-      "n_plate_nodes": 18631,
-      "n_field_values": 9315500,
-      "zero_prediction_rmse": 25.2459716796875,
-      "training_samples": 4800,
-      "validation_samples": 200,
-      "epochs_run": 75,
-      "graph_rmse_median": 3.0579428672790527,
-      "graph_rmse_p90": 8.025827407836914
-    }
-  },
-  "zero_prediction_test_rmse": 18.10063362121582,
   "sha256": {
     "data/case3_demo.zip": "4e7e3ede233f7525706dcacfdac7f6a229896dee86166e97a53bf6fe3261a28b",
-    "pretrained/case3_stress.pt": "b964ad3bd6cd1b685b9760dc08cd992609655c07b115401da5f7176ba6a2a854"
+    "pretrained/case3_stress.pt": "6c73c072b970a3a372272e967f54b7e50064aaa8728b7a76050143518d3c06ab"
   }
 }

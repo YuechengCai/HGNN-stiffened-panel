@@ -1,13 +1,22 @@
 {
-  "rmse": 5.560907363891602,
-  "mae": 2.80908465385437,
+  "rmse": 2.0470757484436035,
+  "mae": 0.8984460234642029,
   "n_graphs": 999,
   "n_plate_nodes": 18631,
   "n_field_values": 9315500,
-  "zero_prediction_rmse": 25.2459716796875,
   "training_samples": 4800,
   "validation_samples": 200,
-  "epochs_run": 75,
-  "graph_rmse_median": 3.0579428672790527,
-  "graph_rmse_p90": 8.025827407836914
+  "epochs_run": 25,
+  "best_fine_tuning_epoch": 23,
+  "source_research_epoch_zero_based": 480,
+  "selected_warm_start_epochs": 3,
+  "graph_rmse_median": 0.883951723575592,
+  "graph_rmse_p90": 2.275933647155762,
+  "training_elapsed_seconds": 1654.2339999999385,
+  "parameter_count": 4887056,
+  "checkpoint_bytes": 19756087,
+  "best_validation_rmse": 1.7179683446884155,
+  "stop_reason": "Convergence review: best validation RMSE improved by less than 0.01 MPa over the last 8 completed epochs after at least 20 epochs",
+  "median_peak_stress_relative_error_percent": 3.065125931265459,
+  "p90_peak_stress_relative_error_percent": 17.880140597264347
 }
