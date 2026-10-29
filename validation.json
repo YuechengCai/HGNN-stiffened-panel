@@ -1,5 +1,5 @@
 {
-  "validated_at_utc": "2026-10-29T07:25:15.605551+00:00",
+  "validated_at_utc": "2026-10-29T08:14:03.302524+00:00",
   "environment": {
     "python": "3.11.13",
     "torch": "2.7.1+cu126",
@@ -11,6 +11,8 @@
     "gpu": "NVIDIA GeForce RTX 3090"
   },
   "data": {
+    "case": "Case 3 three unit water",
+    "representation": "Improved heterogeneous graph representation",
     "graphs": 32,
     "splits": {
       "train": 24,
@@ -19,7 +21,7 @@
     },
     "feature_dims": {
       "plate": 3,
-      "force": 9,
+      "force": 10,
       "Disp": 360,
       "edge": 10
     },
@@ -29,37 +31,78 @@
   },
   "model": {
     "class": "FHGT_YC_V2",
-    "parameters": 489668,
-    "best_epoch": 56,
-    "training_graph_count": 400,
-    "validation_graph_count": 4,
+    "parameters": 489732,
+    "best_epoch": 45,
+    "training_graph_count": 4800,
+    "validation_graph_count": 200,
     "reference_research_backbone_max_abs_difference": 0.0
   },
   "checks": {
     "unit_tests_passed": 4,
-    "notebook_code_cells_executed": 7,
-    "notebook_png_outputs": 3,
+    "notebook_code_cells_executed": 8,
+    "notebook_png_outputs": 4,
     "notebook_short_training_epochs": 3,
     "checkpoint_reload_predictions_match": true,
-    "cpu_gpu_max_abs_prediction_difference": 4.57763671875e-05
+    "cpu_gpu_max_abs_prediction_difference": 3.0517578125e-05
   },
   "cpu_test_metrics": {
-    "rmse": 6.28954553604126,
-    "mae": 4.235697269439697,
+    "rmse": 3.8182828426361084,
+    "mae": 1.9575080871582031,
     "n_graphs": 4,
-    "n_plate_nodes": 88,
-    "n_field_values": 44000
+    "n_plate_nodes": 96,
+    "n_field_values": 48000
   },
   "gpu_test_metrics": {
-    "rmse": 6.289544582366943,
-    "mae": 4.235696315765381,
+    "rmse": 3.81828236579895,
+    "mae": 1.957507610321045,
     "n_graphs": 4,
-    "n_plate_nodes": 88,
-    "n_field_values": 44000
+    "n_plate_nodes": 96,
+    "n_field_values": 48000
   },
-  "zero_prediction_test_rmse": 18.923921585083008,
+  "full_test_metrics": {
+    "rmse": 5.560907363891602,
+    "mae": 2.80908465385437,
+    "n_graphs": 999,
+    "n_plate_nodes": 18631,
+    "n_field_values": 9315500,
+    "zero_prediction_rmse": 25.2459716796875,
+    "training_samples": 4800,
+    "validation_samples": 200,
+    "epochs_run": 75,
+    "graph_rmse_median": 3.0579428672790527,
+    "graph_rmse_p90": 8.025827407836914
+  },
+  "data_size_comparison": {
+    "400": {
+      "rmse": 7.221146583557129,
+      "mae": 4.069891452789307,
+      "n_graphs": 999,
+      "n_plate_nodes": 18631,
+      "n_field_values": 9315500,
+      "zero_prediction_rmse": 25.2459716796875,
+      "training_samples": 400,
+      "validation_samples": 200,
+      "epochs_run": 110,
+      "graph_rmse_median": 4.8631911277771,
+      "graph_rmse_p90": 10.884078788757327
+    },
+    "4800": {
+      "rmse": 5.560907363891602,
+      "mae": 2.80908465385437,
+      "n_graphs": 999,
+      "n_plate_nodes": 18631,
+      "n_field_values": 9315500,
+      "zero_prediction_rmse": 25.2459716796875,
+      "training_samples": 4800,
+      "validation_samples": 200,
+      "epochs_run": 75,
+      "graph_rmse_median": 3.0579428672790527,
+      "graph_rmse_p90": 8.025827407836914
+    }
+  },
+  "zero_prediction_test_rmse": 18.10063362121582,
   "sha256": {
-    "data/case1_demo.zip": "2e7a7b970679d8a01f32b03a1f4717c8ddb3bee424fae0bdbda0568c57baee73",
-    "pretrained/case1_stress.pt": "288529b6d77d1c1fdb85a0f9a382773916a6b079c50bfe59248d2499c46ceb31"
+    "data/case3_demo.zip": "4e7e3ede233f7525706dcacfdac7f6a229896dee86166e97a53bf6fe3261a28b",
+    "pretrained/case3_stress.pt": "b964ad3bd6cd1b685b9760dc08cd992609655c07b115401da5f7176ba6a2a854"
   }
 }

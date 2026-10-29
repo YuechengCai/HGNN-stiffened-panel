@@ -1,4 +1,4 @@
-"""Read the small, portable CSV archive and construct the four-node-type V3 graph."""
+"""Read the CSV archive and construct the improved four-node-type heterogeneous graph."""
 from pathlib import Path
 import json
 from zipfile import ZipFile
@@ -9,12 +9,13 @@ import torch
 from torch_geometric.data import HeteroData
 
 ROOT = Path(__file__).resolve().parent
+DEFAULT_ARCHIVE = ROOT / "data" / "case3_demo.zip"
 DOFS = ("U1", "U2", "U3", "UR1", "UR2", "UR3")
 TARGETS = ("stress", "U1", "U2", "U3")
 
 
 def relation_files():
-    """Preserve the original V3 relation names, directions, and insertion order."""
+    """Preserve the research relation names, directions, and insertion order."""
     relations = {}
     for suffix, offset in (("", 0), ("v", 4)):
         for src, dst, prefix in (("edge", "plate", "Ae2p"), ("plate", "edge", "Ap2e")):
@@ -35,7 +36,7 @@ def load_dataset(archive=None):
     One CSV row is one graph. Padding NaNs are removed per row, following the
     research loader. Adjacency is stored as all source indices, then destinations.
     """
-    archive = Path(archive) if archive else ROOT / "data" / "case1_demo.zip"
+    archive = Path(archive) if archive else DEFAULT_ARCHIVE
     with ZipFile(archive) as z:
         manifest = json.loads(z.read("manifest.json"))
         tables = {name: pd.read_csv(z.open(name)) for name in manifest["csv_files"]}

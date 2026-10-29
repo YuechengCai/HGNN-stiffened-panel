@@ -51,9 +51,13 @@ class DemoTests(unittest.TestCase):
         torch.testing.assert_close(model.target_scale, y.std(unbiased=False))
 
     def test_pretrained_batching_and_reference_metrics(self):
-        model, checkpoint = load_checkpoint(ROOT / "pretrained/case1_stress.pt", self.graphs[0])
-        self.assertEqual(checkpoint["training_source_indices"], list(range(400)))
+        model, checkpoint = load_checkpoint(ROOT / "pretrained/case3_stress.pt", self.graphs[0])
+        self.assertEqual(checkpoint["training_source_indices"], list(range(4800)))
+        self.assertEqual(checkpoint["validation_source_indices"], list(range(5400, 5600)))
         self.assertTrue(set(checkpoint["training_source_indices"]).isdisjoint(g.sample_id for g in self.splits["test"]))
+        full_test = set(range(4800, 5400)) | set(range(5600, 5999))
+        self.assertTrue(set(checkpoint["training_source_indices"]).isdisjoint(full_test))
+        self.assertTrue(set(checkpoint["validation_source_indices"]).isdisjoint(full_test))
         m1, y1, p1 = evaluate(model, self.splits["test"], batch_size=1)
         m4, y4, p4 = evaluate(model, self.splits["test"], batch_size=4)
         np.testing.assert_array_equal(y1, y4)

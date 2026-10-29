@@ -1,17 +1,17 @@
 {
   "target": "stress",
   "split": "test",
-  "rmse": 6.289545059204102,
-  "mae": 4.235696315765381,
+  "rmse": 3.81828236579895,
+  "mae": 1.957507610321045,
   "n_graphs": 4,
-  "n_plate_nodes": 88,
-  "n_field_values": 44000,
+  "n_plate_nodes": 96,
+  "n_field_values": 48000,
   "first_graph": {
-    "source_index": 5300,
-    "rmse": 6.83848762512207,
-    "mae": 4.859872341156006,
+    "source_index": 4800,
+    "rmse": 8.181953430175781,
+    "mae": 5.5759429931640625,
     "n_graphs": 1,
-    "n_plate_nodes": 21,
-    "n_field_values": 10500
+    "n_plate_nodes": 13,
+    "n_field_values": 6500
   }
 }

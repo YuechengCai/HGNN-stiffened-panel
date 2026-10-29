@@ -6,7 +6,7 @@ from torch_geometric.nn import HGTConv
 class FHGT_YC_V2(torch.nn.Module):
     """The research V2 residual HGT, with training-only normalization buffers.
 
-    V3 names the GRAPH representation; V2 names the neural network class.
+    The improved graph representation follows the subsequent global–local paper.
     Only plate nodes have an output head. Predictions are returned in stored
     target units. All normalization statistics travel with the state dict.
     """

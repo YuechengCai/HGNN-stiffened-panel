@@ -1,8 +1,9 @@
-"""Train, evaluate, and visualize the V3 stiffened-panel demonstration."""
+"""Train, evaluate, and visualize the improved heterogeneous graph representation."""
 import argparse
 import json
 from pathlib import Path
 import random
+import time
 
 import matplotlib
 matplotlib.use("Agg")
@@ -11,7 +12,7 @@ import numpy as np
 import torch
 from torch_geometric.loader import DataLoader
 
-from dataset import ROOT, TARGETS, load_dataset
+from dataset import ROOT, DEFAULT_ARCHIVE, TARGETS, load_dataset
 from model import FHGT_YC_V2
 
 
@@ -51,7 +52,8 @@ def load_checkpoint(path, graph, device="cpu"):
 
 
 def train(splits, output, device="cpu", target="stress", epochs=3, batch_size=8,
-          hidden_channels=64, num_layers=4, lr=1e-3, seed=42):
+          hidden_channels=64, num_layers=4, lr=1e-3, seed=42,
+          patience=0, min_epochs=0, scheduler_patience=8, case="demo"):
     if epochs < 1 or batch_size < 1 or not splits["train"] or not splits["val"]:
         raise ValueError("Training requires positive epochs/batch size and nonempty train/val splits")
     random.seed(seed)
@@ -66,9 +68,13 @@ def train(splits, output, device="cpu", target="stress", epochs=3, batch_size=8,
     loader = DataLoader(splits["train"], batch_size=batch_size, shuffle=True,
                         generator=torch.Generator().manual_seed(seed))
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-    # A simple constant learning rate keeps this short demonstration transparent.
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, factor=0.5, patience=scheduler_patience, min_lr=1e-5)
     best_loss, best_state, best_epoch = float("inf"), None, None
     history = []
+    started = time.monotonic()
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
     for epoch in range(1, epochs + 1):
         model.train()
         squared_error, n_values = 0.0, 0
@@ -84,20 +90,28 @@ def train(splits, output, device="cpu", target="stress", epochs=3, batch_size=8,
             optimizer.step()
             squared_error += loss.item() * model.target_scale.item() ** 2 * truth.numel()
             n_values += truth.numel()
-        metrics, _, _ = evaluate(model, splits["val"], device, target)
+        metrics, _, _ = evaluate(model, splits["val"], device, target, batch_size=max(4, batch_size))
         val_mse = metrics["rmse"] ** 2
-        history.append({"epoch": epoch, "train_mse": squared_error / n_values, "val_mse": val_mse})
-        print(f"Epoch {epoch}/{epochs}: train MSE={squared_error/n_values:.4f}, val MSE={val_mse:.4f}", flush=True)
+        history.append({"epoch": epoch, "train_mse": squared_error / n_values, "val_mse": val_mse,
+                        "lr": optimizer.param_groups[0]["lr"], "elapsed_seconds": time.monotonic() - started})
+        scheduler.step(val_mse)
+        print(f"Epoch {epoch}/{epochs}: train MSE={squared_error/n_values:.4f}, val MSE={val_mse:.4f}, elapsed={time.monotonic()-started:.1f}s", flush=True)
         if val_mse < best_loss:
             best_loss, best_epoch = val_mse, epoch
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
-    output = Path(output)
-    output.mkdir(parents=True, exist_ok=True)
+        (output / "history.json").write_text(json.dumps(history, indent=2), encoding="utf-8")
+        if patience and epoch >= min_epochs and epoch - best_epoch >= patience:
+            print(f"Early stopping after {epoch} epochs; best validation epoch {best_epoch}.", flush=True)
+            break
     torch.save({"model_state_dict": best_state, "model_config": config, "target": target,
                 "feature_dims": dict(graph.num_node_features), "metadata": graph.metadata(),
                 "best_epoch": best_epoch, "training_source_indices": [g.sample_id for g in splits["train"]],
                 "validation_source_indices": [g.sample_id for g in splits["val"]],
-                "provenance": "Case 1 training; exact graph IDs recorded in this checkpoint"},
+                "case": case, "provenance": "Exact training and validation graph IDs recorded in this checkpoint",
+                "training_config": {"epochs_requested": epochs, "epochs_run": len(history),
+                                    "batch_size": batch_size, "learning_rate": lr, "seed": seed,
+                                    "scheduler": "ReduceLROnPlateau", "scheduler_patience": scheduler_patience,
+                                    "early_stopping_patience": patience, "min_epochs": min_epochs}},
                output / "best_model.pt")
     (output / "history.json").write_text(json.dumps(history, indent=2), encoding="utf-8")
     model.load_state_dict(best_state)
@@ -146,8 +160,8 @@ def run_inference(checkpoint_path, splits, output, device="cpu", split="test", p
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("inspect", "train", "predict"))
-    parser.add_argument("--data", type=Path, default=ROOT / "data/case1_demo.zip")
-    parser.add_argument("--checkpoint", type=Path, default=ROOT / "pretrained/case1_stress.pt")
+    parser.add_argument("--data", type=Path, default=DEFAULT_ARCHIVE)
+    parser.add_argument("--checkpoint", type=Path, default=ROOT / "pretrained/case3_stress.pt")
     parser.add_argument("--output", type=Path, default=ROOT / "outputs/demo")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--target", choices=TARGETS, default="stress")
@@ -156,17 +170,23 @@ def main():
     parser.add_argument("--hidden", type=int, default=64)
     parser.add_argument("--layers", type=int, default=4)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--patience", type=int, default=0, help="Validation early stopping; 0 disables it")
+    parser.add_argument("--min-epochs", type=int, default=0)
+    parser.add_argument("--scheduler-patience", type=int, default=8)
     parser.add_argument("--split", choices=("train", "val", "test"), default="test")
     parser.add_argument("--plate", type=int, default=0)
     args = parser.parse_args()
     torch.set_num_threads(min(4, torch.get_num_threads()))
     graphs, splits, manifest = load_dataset(args.data)
     if args.command == "inspect":
-        print(json.dumps({"samples": len(graphs), "splits": {k: len(v) for k, v in splits.items()},
+        print(json.dumps({"case": manifest["case"], "representation": manifest["representation"],
+                          "samples": len(graphs), "splits": {k: len(v) for k, v in splits.items()},
                           "features": manifest["feature_dims"], "relations": len(graphs[0].edge_types)}, indent=2))
         print(graphs[0])
     elif args.command == "train":
-        train(splits, args.output, args.device, args.target, args.epochs, args.batch_size, args.hidden, args.layers, args.lr)
+        train(splits, args.output, args.device, args.target, args.epochs, args.batch_size, args.hidden,
+              args.layers, args.lr, patience=args.patience, min_epochs=args.min_epochs,
+              scheduler_patience=args.scheduler_patience, case=manifest["case"])
         run_inference(args.output / "best_model.pt", splits, args.output, args.device)
     else:
         run_inference(args.checkpoint, splits, args.output, args.device, args.split, args.plate)

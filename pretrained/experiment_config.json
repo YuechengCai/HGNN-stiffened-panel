@@ -1,0 +1,39 @@
+{
+  "case": "Case 3 three unit water",
+  "train_pool": [
+    0,
+    4800
+  ],
+  "validation_range": [
+    5400,
+    5600
+  ],
+  "test_ranges": [
+    [
+      4800,
+      5400
+    ],
+    [
+      5600,
+      5999
+    ]
+  ],
+  "note": "Half-open, zero-based cache index ranges; original Case 3 training/validation ranges preserved.",
+  "feature_dims": {
+    "plate": 3,
+    "force": 10,
+    "Disp": 360,
+    "edge": 10
+  },
+  "network": {
+    "layers": 4,
+    "hidden": 64,
+    "heads": 4
+  },
+  "max_epochs": 200,
+  "batch_size": 64,
+  "learning_rate": 0.001,
+  "seed": 42,
+  "scheduler": "ReduceLROnPlateau, factor 0.5, patience 8, minimum LR 1e-5",
+  "early_stopping": "30 epochs without validation improvement, minimum 50 epochs"
+}

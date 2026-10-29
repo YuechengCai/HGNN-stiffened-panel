@@ -1,8 +1,8 @@
-# Heterogeneous Graph Neural Network for Stiffened Panels
+# Improved Heterogeneous Graph Representation for Stiffened Panels
 
-A focused demonstration of the **V3 heterogeneous graph representation** for stiffened panels with non-uniform boundary conditions and external loads, associated with *Heterogeneous Graph Representation of Stiffened Panels with Non-Uniform Boundary Conditions and Loads* by Yuecheng Cai and Jasmin Jelovica.
+A focused demonstration of the **improved heterogeneous graph representation** for stiffened panels with non-uniform boundary conditions and external loads, developed in *A hybrid global–local computational framework for ship hull structural analysis using homogenized model and graph neural network* by Yuecheng Cai and Jasmin Jelovica.
 
-This repository includes a runnable notebook, **32 real Case 1 samples**, and a small pretrained stress model. It follows the notebook-based presentation of our [homogeneous GNN demonstration](https://github.com/YuechengCai/GNN-stiffened-panel).
+This repository includes a runnable notebook, **32 real Case 3 samples**, and a pretrained stress model. Case 3 is the most complex case: a three-cell box beam with double sides and hydrostatic loading. Each graph represents a local stiffened panel extracted from that structure. The presentation follows our [homogeneous GNN demonstration](https://github.com/YuechengCai/GNN-stiffened-panel).
 
 ## Graph representation
 
@@ -11,7 +11,7 @@ Each graph represents an entire panel using structural units rather than individ
 | Node type | Role | Input features per node |
 |---|---|---:|
 | `plate` | Plate geometry | 3 |
-| `force` | External loading, represented separately | 9 |
+| `force` | External loading, represented separately | 10 |
 | `edge` | Structural edge information | 10 |
 | `Disp` | All six prescribed displacement/rotation DOFs concatenated | 360 = 6 × 60 |
 
@@ -24,6 +24,12 @@ flowchart LR
 ```
 
 The graph has **four node types and 20 directed relation types**. The `edge` node type describes a physical structural edge; it is distinct from a graph connection. The number of nodes varies with the panel. `Disp` combines the six DOFs for each relevant boundary, rather than combining every boundary into one global node. See [the data schema](data/README.md).
+
+## Method origins
+
+Our earlier paper, *Heterogeneous Graph Representation of Stiffened Panels with Non-Uniform Boundary Conditions and Loads* (Paper 2), introduced and compared six heterogeneous graph representations. The subsequent hybrid global–local framework (Paper 3, Section 2.3.1) refined that work by combining two strategies: representing structural edges and boundary DOFs as separate node types, and concatenating all six boundary DOFs within each boundary node. External loading is also represented independently. This repository demonstrates that improved four-node-type representation.
+
+This release covers the local panel graph surrogate. The complete ESL global analysis and boundary-DOF recovery pipeline from Paper 3 is outside its scope.
 
 ## Quick start
 
@@ -47,7 +53,7 @@ CPU inference is supported. CUDA is selected automatically when available; pass 
 python demo.py train --epochs 3 --output outputs/quick_train
 
 # Train longer on the supplied 24 training graphs
-python demo.py train --epochs 200 --batch-size 8 --layers 4 --hidden 64 --lr 0.001 --output outputs/retrain
+python demo.py train --epochs 200 --batch-size 8 --layers 4 --hidden 64 --lr 0.001 --patience 30 --min-epochs 50 --output outputs/retrain
 
 # Evaluate your saved checkpoint
 python demo.py predict --checkpoint outputs/retrain/best_model.pt --output outputs/retrain_prediction
@@ -56,20 +62,36 @@ python demo.py predict --checkpoint outputs/retrain/best_model.pt --output outpu
 python demo.py train --target U1 --epochs 3 --output outputs/U1_demo
 ```
 
-The demo uses the residual **`FHGT_YC_V2` network from the research source code**, with four HGT layers, 64 hidden channels, four attention heads, dropout 0.1, and a linear head on plate nodes. **V3 refers to the graph representation; V2 refers to the network implementation.** Input standardization and target scaling are fitted on the training split only and saved in the checkpoint. Outputs are restored to their stored target units before reporting errors. The original shared-BatchNorm `FHGT_YC` checkpoint is not distributed here.
+The demo adapts the residual HGT implementation from the research source code, with four HGT layers, 64 hidden channels, four attention heads, dropout 0.1, and a linear head on plate nodes. Input standardization and target scaling are fitted on the training split only and saved in the checkpoint. Outputs are restored to their stored target units before reporting errors. This compact demo network and its training recipe differ from the full paper experiments.
 
-AdamW uses weight decay 0.0001 and a constant learning rate. The checkpoint with the lowest validation MSE is retained. This compact training recipe differs from the full experiments and hyperparameter searches in the paper.
+AdamW uses initial learning rate 0.001 and weight decay 0.0001. A validation-based scheduler halves the learning rate after eight epochs without improvement, down to 0.00001. The checkpoint with the lowest validation MSE is retained. The full local experiment allows up to 200 epochs and stops after 30 epochs without validation improvement, after at least 50 epochs. This compact training recipe differs from the full experiments and hyperparameter searches in the paper.
 
 ## Data and pretrained model
 
-- `data/case1_demo.zip`: 24 training, 4 validation, and 4 test graphs; approximately 9.3 MiB. Contains inspectable CSV files and a sample manifest, loaded directly from ZIP.
-- `pretrained/case1_stress.pt`: weights trained locally on **400 original training graphs** (indices 0–399), selected by the four bundled validation graphs. Only 24 of those training graphs are released. No optimizer state or full research dataset is included.
-- `pretrained/training_history.json`: the 200-epoch training/validation history.
-- `pretrained/metrics.json`: results on the four held-out demo graphs.
+- `data/case3_demo.zip`: 24 training, 4 validation, and 4 test graphs; approximately 7 MiB. Contains inspectable CSV files and a sample manifest, loaded directly from ZIP.
+- `pretrained/case3_stress.pt`: weights trained locally on **4,800 original Case 3 training graphs**, selected using 200 separate validation graphs. Only 24 of those training graphs are released. No optimizer state or full research dataset is included.
+- `pretrained/training_history.json`: the training/validation history, including learning rates and elapsed time.
+- `pretrained/metrics.json`: results on the four bundled test examples.
+- `pretrained/full_test_metrics.json`: results on all 999 test graphs, including the median and 90th percentile of per-graph RMSE.
+- `pretrained/data_size_comparison.json`: 400 versus 4,800 training graphs on the same Case 3 validation/test sets.
+- `pretrained/experiment_config.json`: exact experiment settings and split ranges.
 
-The checkpoint's test results are recorded in `pretrained/metrics.json` over 44,000 field values. These are demo results, not paper benchmark metrics. A three-epoch run checks the workflow and should not be expected to converge. Retraining on the released 24-graph subset will produce a different model from the bundled 400-graph checkpoint.
+The notebook and default CLI evaluate only the four bundled test examples; the full-test report evaluates 999 graphs. These are demo results, not paper benchmark metrics. A three-epoch run checks the workflow and should not be expected to converge. Retraining on the released 24-graph subset produces a different model from the bundled 4,800-graph checkpoint.
 
-The pretrained recipe uses the same network, AdamW learning rate 0.001, batch size 64, seed 42, and 200 epochs on the original 400-graph training range; input and target normalization use only those training graphs. Validation uses original graph IDs 5100, 5166, 5232, and 5299. Checkpoint selection never uses the four test graphs. The omitted training samples are required to reproduce that checkpoint from scratch.
+The full local recipe uses batch size 64 and seed 42. Training uses original graph indices `[0, 4800)`, validation uses `[5400, 5600)`, and testing uses `[4800, 5400)` plus `[5600, 5999)` (zero-based, half-open ranges). There are 5,999 graphs in the available cache. This preserves the existing Case 3 training/validation ranges and evaluates all remaining graphs. Normalization uses training graphs only; checkpoint selection uses validation graphs only. These are graph-level splits; related panels can originate from the same box-beam geometry. The omitted training samples are required to reproduce the supplied checkpoint from scratch.
+
+Paper 3 uses 4,800 training panels for its full study. This demo now uses the same training count, with a compact residual HGT and the explicit split above; it is not a reproduction of all paper experiments. The three-epoch notebook training cell uses only the 24 released training graphs and is a separate workflow check. Example selection is evenly spaced within each pool and does not depend on model errors.
+
+### Effect of training data size on Case 3
+
+The same network, 200 validation graphs, 999 test graphs, optimizer, and stopping rules were used for both runs. More graphs also mean more optimization steps per epoch.
+
+| Training graphs | Test stress RMSE (MPa) | Test stress MAE (MPa) | Median per-graph RMSE (MPa) |
+|---:|---:|---:|---:|
+| 400 | 7.22 | 4.07 | 4.86 |
+| 4,800 | 5.56 | 2.81 | 3.06 |
+
+Using 4,800 training graphs reduces RMSE by approximately 23% in this comparison. The larger run stopped after 75 epochs and retained the checkpoint from epoch 45. Results cover 9,315,500 field values across 18,631 plate nodes; the four distributed test examples are only a visualization subset. These results belong to this demo configuration and do not replace the paper's accuracy results.
 
 Stress fields have 500 values per plate, plotted as a 10 × 50 grid using the original MATLAB column-major ordering. Displacement targets retain their original stored scaling; this demo does not claim to convert those values to physical displacement units.
 
@@ -80,7 +102,7 @@ The exporter corrected reversed source/destination rows in the two legacy `Disp 
 | File | Purpose |
 |---|---|
 | [demo.ipynb](demo.ipynb) | Main walkthrough with executed example outputs |
-| [dataset.py](dataset.py) | CSV loading and V3 graph construction |
+| [dataset.py](dataset.py) | CSV loading and improved heterogeneous graph construction |
 | [model.py](model.py) | Residual HGT and saved normalization statistics |
 | [demo.py](demo.py) | Command-line training, inference, plots, and metrics |
 | [tests/test_demo.py](tests/test_demo.py) | Graph, split, checkpoint, and inference checks |
@@ -98,4 +120,4 @@ python -m unittest discover -s tests -v
 
 ## Scope
 
-Only one graph representation and a small Case 1 subset are released. Other cases, ablation studies, complete training datasets, Optuna databases, and research result folders are outside this demonstration. The bundled weights demonstrate the released training workflow and do not reproduce the full paper's reported accuracy.
+Only the improved graph representation and a small Case 3 subset are released. Other cases, ablation studies, complete training datasets, Optuna databases, and research result folders are outside this demonstration. The bundled weights demonstrate the released training workflow and do not reproduce the full paper's reported accuracy.
