@@ -1,0 +1,65 @@
+{
+  "validated_at_utc": "2026-10-29T07:25:15.605551+00:00",
+  "environment": {
+    "python": "3.11.13",
+    "torch": "2.7.1+cu126",
+    "torch_geometric": "2.6.1",
+    "numpy": "2.4.6",
+    "pandas": "2.3.1",
+    "matplotlib": "3.10.5",
+    "cuda_available": true,
+    "gpu": "NVIDIA GeForce RTX 3090"
+  },
+  "data": {
+    "graphs": 32,
+    "splits": {
+      "train": 24,
+      "val": 4,
+      "test": 4
+    },
+    "feature_dims": {
+      "plate": 3,
+      "force": 9,
+      "Disp": 360,
+      "edge": 10
+    },
+    "relation_types": 20,
+    "all_graphs_validate": true,
+    "export_roundtrip": "Exact float32 equality for all 32 corrected source graphs"
+  },
+  "model": {
+    "class": "FHGT_YC_V2",
+    "parameters": 489668,
+    "best_epoch": 56,
+    "training_graph_count": 400,
+    "validation_graph_count": 4,
+    "reference_research_backbone_max_abs_difference": 0.0
+  },
+  "checks": {
+    "unit_tests_passed": 4,
+    "notebook_code_cells_executed": 7,
+    "notebook_png_outputs": 3,
+    "notebook_short_training_epochs": 3,
+    "checkpoint_reload_predictions_match": true,
+    "cpu_gpu_max_abs_prediction_difference": 4.57763671875e-05
+  },
+  "cpu_test_metrics": {
+    "rmse": 6.28954553604126,
+    "mae": 4.235697269439697,
+    "n_graphs": 4,
+    "n_plate_nodes": 88,
+    "n_field_values": 44000
+  },
+  "gpu_test_metrics": {
+    "rmse": 6.289544582366943,
+    "mae": 4.235696315765381,
+    "n_graphs": 4,
+    "n_plate_nodes": 88,
+    "n_field_values": 44000
+  },
+  "zero_prediction_test_rmse": 18.923921585083008,
+  "sha256": {
+    "data/case1_demo.zip": "2e7a7b970679d8a01f32b03a1f4717c8ddb3bee424fae0bdbda0568c57baee73",
+    "pretrained/case1_stress.pt": "288529b6d77d1c1fdb85a0f9a382773916a6b079c50bfe59248d2499c46ceb31"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "target": "stress",
+  "split": "test",
+  "rmse": 6.289545059204102,
+  "mae": 4.235696315765381,
+  "n_graphs": 4,
+  "n_plate_nodes": 88,
+  "n_field_values": 44000,
+  "first_graph": {
+    "source_index": 5300,
+    "rmse": 6.83848762512207,
+    "mae": 4.859872341156006,
+    "n_graphs": 1,
+    "n_plate_nodes": 21,
+    "n_field_values": 10500
+  }
+}
